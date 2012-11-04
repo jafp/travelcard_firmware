@@ -8,6 +8,7 @@
 #include <avr/wdt.h>
 #include <util/delay.h>
 
+#include "usbdrv/usbdrv.h"
 #include "bits.h"
 #include "lcd.h"
 #include "usb.h"
@@ -211,40 +212,6 @@ static void make_balance_str(char *buffer)
 }
 
 /**
- * Ticks the keep alive timer. 
- */
-// static void keep_alive_tick(void)
-// {
-// 	keep_alive_i++;
-// 	if (keep_alive_i == 1000)
-// 	{
-// 		keep_alive_j++;
-// 		keep_alive_i = 0;
-
-// 		if (keep_alive_j == 500)
-// 		{
-// 			keep_alive_j = 0;
-
-// 			if (is_alive == 0)
-// 			{
-// 				state = no_connection;
-// 				first_step = 1;
-// 			}
-// 			else
-// 			{
-// 				if (state == no_connection)
-// 				{
-// 					state = idle;
-// 				}
-
-// 				first_step = 1;
-// 				is_alive = 0;
-// 			}
-// 		}
-// 	}
-// }
-
-/**
  * Hardware setup routines.
  */
 static void setup(void)
@@ -290,7 +257,6 @@ int __attribute__((noreturn)) main(void)
 	for (;;)
 	{
 		wdt_reset();
-		// keep_alive_tick();
 
 		switch (state)
 		{
@@ -352,6 +318,11 @@ int __attribute__((noreturn)) main(void)
 				}
 				else
 				{
+					if (!usbInterruptIsReady())
+					{
+						wdt_reset();
+					}
+
 					usbSetInterrupt(card_id, 8);
 					first_step = 1;
 					state = processing;
