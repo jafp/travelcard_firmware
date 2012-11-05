@@ -35,6 +35,7 @@
  * USB Command codes
  */
 #define CMD_ECHO				0
+#define CMD_IDENTIFER			1
 #define CMD_RESPONSE			3
 #define CMD_KEEP_ALIVE			4
 
@@ -74,11 +75,6 @@ static uchar reply_buffer[8];
  * Response code from server.
  */
 static uchar response = 0;
-
-/**
- * Terminal "is-alive" flag
- */
-static uchar is_alive = 0;
 
 /**
  * First step in state flag
@@ -130,7 +126,10 @@ ISR(TIMER1_COMPA_vect, ISR_NOBLOCK)
 	first_step = 1;
 }
 
-static void set_is_alive()
+/**
+ * Notify that we're still alive!
+ */
+static void set_is_alive(void)
 {
 	cli();
 	TCNT1 = 0x0000;
@@ -155,6 +154,11 @@ usbMsgLen_t usbFunctionSetup(uchar data[8])
     	reply_buffer[0] = data[2];
     	reply_buffer[1] = data[3];
     	len = 2;
+    }
+    if (data[1] == CMD_IDENTIFER)
+    {
+    	reply_buffer[0] = ID;
+    	len = 1;
     }
     if (data[1] == CMD_RESPONSE)
     {
