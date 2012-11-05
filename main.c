@@ -126,21 +126,20 @@ ISR(TIMER0_COMP_vect, ISR_NOBLOCK)
  */
 ISR(TIMER1_COMPA_vect, ISR_NOBLOCK)
 {
-	if (is_alive == 0)
+	state = no_connection;
+	first_step = 1;
+}
+
+static void set_is_alive()
+{
+	cli();
+	TCNT1 = 0x0000;
+	sei();
+
+	if (state == no_connection)
 	{
-		state = no_connection;
+		state = starting;
 		first_step = 1;
-		//GREEN_ON;
-	}
-	else
-	{
-		//GREEN_OFF;
-		if (state == no_connection)
-		{
-			state = idle;
-		}
-		first_step = 1;
-		is_alive = 0;
 	}
 }
 
@@ -163,7 +162,7 @@ usbMsgLen_t usbFunctionSetup(uchar data[8])
     }
     if (data[1] == CMD_KEEP_ALIVE)
     {
-    	is_alive = 1;
+    	set_is_alive();
     	len = 0;
     }
 
@@ -223,10 +222,10 @@ static void setup(void)
 
 	TCCR1B |= (1 << WGM12);
     TIMSK |= (1 << OCIE1A);
-    OCR1A = 23000; //35156; // (12000000 / 1024) / (1/2) roughly 0.5 Hz 
+    OCR1A = 46874; // 256 prescaler --> 1 Hz
 
 	TCCR0 |= (1 << WGM01);
-	OCR0 = 45; // (12000000÷1024)÷(1÷0.004)−1 = 45.6 --- 250 Hz
+	OCR0 = 45; // 1024 prescaler --> 250 Hz
 	TIMSK |= (1 << OCIE0);
 
 	LCD_Init(16);
@@ -235,8 +234,11 @@ static void setup(void)
 
 	USB_InitAndConnect();
 
-	TCCR1B |= (1 << CS12) | (1 << CS10); // 1024 prescaler
-	TCCR0 |=  (1 << CS02) | (1 << CS00); // 1024 prescaler
+	// TIMER1: 256 prescaler
+	TCCR1B |= (1 << CS12); 
+
+	// TIMER0: 1024 prescaler
+	TCCR0 |=  (1 << CS02) | (1 << CS00); 
 
 	InitRFID();
 }
@@ -335,7 +337,7 @@ int __attribute__((noreturn)) main(void)
 				if (response != 0)
 				{
 					set(PORTC, 0);
-					_delay_ms(100);
+					_delay_ms(200);
 					clr(PORTC, 0);
 
 					first_step = 1;
