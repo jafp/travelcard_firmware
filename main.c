@@ -49,6 +49,7 @@
 #define RESP_INVALID_CARD		5
 #define RESP_CHECKED_IN			6
 #define RESP_CHECKED_OUT		7
+#define RESP_OK 				8
 
 /**
  * Enum of possible terminal states
@@ -131,9 +132,11 @@ ISR(TIMER1_COMPA_vect, ISR_NOBLOCK)
  */
 static void set_is_alive(void)
 {
+	unsigned char i = SREG;
 	cli();
+
 	TCNT1 = 0x0000;
-	sei();
+	SREG = i;
 
 	if (state == no_connection)
 	{
@@ -412,6 +415,13 @@ int __attribute__((noreturn)) main(void)
 					case RESP_TOO_LATE_CHECK_OUT:
 					{
 						set_status_msg("For sent checkud", 0);
+						set_status_msg("", 1);
+
+						break;
+					}
+					case RESP_OK:
+					{
+						set_status_msg("OK", 0);
 						set_status_msg("", 1);
 
 						break;
