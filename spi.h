@@ -1,5 +1,9 @@
 
+#ifndef _SPI_H_
+#define _SPI_H_
+
 #include "config.h"
+#include <stdint.h>
 #include <avr/io.h>
 #include <util/delay.h>
 
@@ -11,7 +15,8 @@
 #define DD_SS 		DDB4
 #define SPI_SS 		PB4
 
-void SpiInit(void);
-void SpiTransmit(char data);
-unsigned char SpiReceive(void);
-void EmptyBuffer(void);
+void SPI_Init(void);
+void SPI_Transmit(uint8_t data);
+uint8_t SPI_Receive(void);
+
+#endif

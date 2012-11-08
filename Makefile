@@ -146,7 +146,7 @@ CFLAGS=-I. $(INC) -g -mmcu=$(MCU) -O$(OPTLEVEL) \
 	$(filter %.lst, $(<:.c=.lst)))
 
 # c++ specific flags
-CPPFLAGS=-fno-exceptions               \
+CPPFLAGS=-fno-exceptions           \
 	-Wa,-ahlms=$(firstword         \
 	$(filter %.lst, $(<:.cpp=.lst))\
 	$(filter %.lst, $(<:.cc=.lst)) \

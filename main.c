@@ -3,6 +3,7 @@
  */
 
 #include "config.h"
+#include <stdint.h>
 #include <stdio.h>
 #include <avr/io.h>
 #include <avr/wdt.h>
@@ -18,10 +19,6 @@
 #define YELLOW_PIN	PC2
 #define GREEN_PIN	PC1
 #define SPEAKER_PIN	PC0
-#define LEDS		PORTC
-#define RED 		RED_PIN
-#define YELLOW 		YELLOW_PIN
-#define GREEN 		GREEN_PIN
 
 #define RED_ON 		clr(PORTC, RED_PIN)
 #define RED_OFF		set(PORTC, RED_PIN)
@@ -29,7 +26,8 @@
 #define YELLOW_OFF	set(PORTC, YELLOW_PIN)
 #define GREEN_ON	clr(PORTC, GREEN_PIN);
 #define GREEN_OFF	set(PORTC, GREEN_PIN);
-
+#define SPEAKER_ON	set(PORTC, SPEAKER_PIN);
+#define SPEAKER_OFF	clr(PORTC, SPEAKER_PIN);
 
 /**
  * USB Command codes
@@ -65,7 +63,7 @@ enum terminal_state { starting, idle, scanning, processing, info, no_connection 
 /**
  * Card identifier buffer.
  */
-static uchar card_id[8];
+static uint8_t card_id[8];
 
 /**
  * USB reply buffer
@@ -128,9 +126,32 @@ ISR(TIMER1_COMPA_vect, ISR_NOBLOCK)
 }
 
 /**
+ * Helper function to generate a delay.
+ * The watchdog timer is kept busy in the meanwhile.
+ */
+inline void delay(uint8_t ms) 
+{
+	while (ms--) 
+	{
+		_delay_ms(1);
+		wdt_reset();
+	}
+}
+
+/**
+ * 
+ */
+inline void speakerBeep(uint8_t ms) 
+{
+	SPEAKER_ON;
+	delay(ms);
+	SPEAKER_OFF;
+}
+
+/**
  * Notify that we're still alive!
  */
-static void set_is_alive(void)
+static void isAlive(void)
 {
 	unsigned char i = SREG;
 	cli();
@@ -169,7 +190,7 @@ usbMsgLen_t usbFunctionSetup(uchar data[8])
     }
     if (data[1] == CMD_KEEP_ALIVE)
     {
-    	set_is_alive();
+    	isAlive();
     	len = 0;
     }
 
@@ -201,7 +222,7 @@ USB_PUBLIC uchar usbFunctionWrite(uchar *data, uchar len)
  * Prints the given message on the given line.
  * The line are cleared before print.
  */
-static void set_status_msg(const char * msg, uchar line)
+static void setStatus(const char * msg, uchar line)
 {
 	LCD_GotoXY(0, line);
 	LCD_PutString("                ");
@@ -212,7 +233,7 @@ static void set_status_msg(const char * msg, uchar line)
 /**
  * Creates a string like "Saldo: [current balance]"
  */
-static void make_balance_str(char *buffer)
+static void makeBalance(char *buffer)
 {
 	sprintf(buffer, "Saldo %d kr", balance);
 }
@@ -247,7 +268,7 @@ static void setup(void)
 	// TIMER0: 1024 prescaler
 	TCCR0 |=  (1 << CS02) | (1 << CS00); 
 
-	InitRFID();
+	RFID_Init();
 }
 
 /**
@@ -255,14 +276,19 @@ static void setup(void)
  */
 int __attribute__((noreturn)) main(void)
 {
+	// Utility counter variables
 	unsigned int i = 0;
 	unsigned char j = 0;
-	char buf[32];
+	// Buffer used when generating output for the display
+	char buf[16];
 
+	// Perform setup of registers and peripherals
 	setup();
 
-	RED_ON;
+	// Indicate setup done
+	//RED_ON;
 
+	// Main loop and state machine
 	for (;;)
 	{
 		wdt_reset();
@@ -273,8 +299,8 @@ int __attribute__((noreturn)) main(void)
 			{
 				// Start-up phase.
 				// Do nothing in a bunch of clock cycles
-				set_status_msg("Starter...", 0);
-				set_status_msg("", 1);
+				setStatus("Starter...", 0);
+				setStatus("", 1);
 
 				for (i = 0; i < 100; i++) 
 				{
@@ -288,18 +314,18 @@ int __attribute__((noreturn)) main(void)
 			}
 			case idle:
 			{
-				RED_OFF;
+				//RED_OFF;
 				YELLOW_ON;
 
 				if (first_step)
 				{
 					first_step = 0;
 
-					set_status_msg("Scan her!", 0);
-					set_status_msg("", 1);
+					setStatus("Scan her!", 0);
+					setStatus("", 1);
 				}
 				
-				if (CardPresent())
+				if (RFID_IsCardPresent())
 				{
 					first_step = 1;
 					state = scanning;
@@ -309,16 +335,17 @@ int __attribute__((noreturn)) main(void)
 			}
 			case scanning:
 			{
+				RED_ON;
 				if (first_step)
 				{
 					first_step = 0;
-					set_status_msg("Arbejder...", 0);
+					setStatus("Arbejder...", 0);
 				}
 
 				// XXX: These two call may cause problems sometimes.
 				// The usbSetInterrupt should not block, but maybe it does.
 				// Maybe the SPI transfer hangs, and causes the Watchdog timer to perform a reset.
-				char n = GetCardId(card_id);
+				uint8_t n = RFID_GetCardId(card_id);
 				if (n == -1 || card_id[0] != 0x86) 
 				{
 					state = info;
@@ -340,15 +367,28 @@ int __attribute__((noreturn)) main(void)
 			}
 			case processing:
 			{
-				
+				RED_OFF;
 				if (response != 0)
 				{
-					set(PORTC, 0);
-					_delay_ms(200);
-					clr(PORTC, 0);
+					if (response == RESP_CHECKED_IN) 
+					{
+						speakerBeep(100);
+					}
+					else if (response == RESP_CHECKED_OUT)
+					{
+						speakerBeep(100);
+						delay(50);
+						speakerBeep(100);	
+					}
+					else 
+					{
+						speakerBeep(255);
+					}
 
 					first_step = 1;
 					state = info;
+					
+					break;
 				}
 
 				if (first_step)
@@ -374,75 +414,73 @@ int __attribute__((noreturn)) main(void)
 			case info:
 			{
 				YELLOW_OFF;
-
-				clr(LEDS, GREEN);
+				GREEN_ON;
 
 				switch (response)
 				{
 					case RESP_CHECKED_IN:
 					{
-						set_status_msg("Check ind", 0);
-						make_balance_str(buf);
-						set_status_msg(buf, 1);
+						setStatus("Check ind", 0);
+						makeBalance(buf);
+						setStatus(buf, 1);
 
 						break;
 					}
 					case RESP_CHECKED_OUT:
 					{
 						sprintf(buf, "Check ud   %d kr", price);
-						set_status_msg(buf, 0);
-						make_balance_str(buf);
-						set_status_msg(buf, 1);
+						setStatus(buf, 0);
+						makeBalance(buf);
+						setStatus(buf, 1);
 
 						break;
 					}
 					case RESP_INSUFFICIENT_FUNDS:
 					{
-						set_status_msg("Saldo for lav", 0);
-						make_balance_str(buf);
-						set_status_msg(buf, 1);
+						setStatus("Saldo for lav", 0);
+						makeBalance(buf);
+						setStatus(buf, 1);
 
 						break;
 					}
 					case RESP_CARD_NOT_FOUND:
 					case RESP_INVALID_CARD:
 					{
-						set_status_msg("Ugyldigt kort", 0);
-						set_status_msg("", 1);
+						setStatus("Ugyldigt kort", 0);
+						setStatus("", 1);
 
 						break;
 					}
 					case RESP_TOO_LATE_CHECK_OUT:
 					{
-						set_status_msg("For sent checkud", 0);
-						set_status_msg("", 1);
+						setStatus("For sent checkud", 0);
+						setStatus("", 1);
 
 						break;
 					}
 					case RESP_OK:
 					{
-						set_status_msg("OK", 0);
-						set_status_msg("", 1);
+						setStatus("OK", 0);
+						setStatus("", 1);
 
 						break;
 					}
 					default: 
 					{
-						set_status_msg("SYSTEMFEJL", 0);
-						set_status_msg("", 1);
+						setStatus("SYSTEMFEJL", 0);
+						setStatus("", 1);
 
 						break;
 					}
 				}
 
 				// Stay here until the customer removes the card
-				while ( CardPresent() ) 
+				while ( RFID_IsCardPresent() ) 
 				{
 					wdt_reset();
 				}
 
-				set(LEDS, GREEN);
-
+				GREEN_OFF;
 				state = idle;
 				response = 0;
 				first_step = 1;
@@ -457,15 +495,13 @@ int __attribute__((noreturn)) main(void)
 			}
 			case no_connection:
 			{
-				//YELLOW_OFF;
-
 				if (first_step)
 				{
 					first_step = 0;
 					
 					RED_ON;
-					set_status_msg("Ude af drift", 0);
-					set_status_msg("", 1);
+					setStatus("Ude af drift", 0);
+					setStatus("", 1);
 				}
 
 				break;

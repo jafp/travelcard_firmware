@@ -1,32 +1,39 @@
 #include <avr/wdt.h>
 #include "rfid.h"
 
-void InitRFID(void) {
-	SpiInit();
+void RFID_Init(void) 
+{
+	SPI_Init();
 	DDRD = 0x0;
 }
 
-int CardPresent(void) {
-	return (PIND & (1<<Card_Present)) != 0;
+uint8_t RFID_IsCardPresent(void) 
+{
+	return (PIND & (1 << RFID_CARD_PRESENT));
 }
 
-char GetCardStatus(void) {
-	SpiTransmit(0x53);
-	while((PIND & (1<<Data_Ready)) == 0);
-	return SpiReceive();
+uint8_t RFID_GetCardStatus(void) 
+{
+	SPI_Transmit(RFID_CMD_STATUS);
+	while((PIND & (1 << RFID_DATA_READY)) == 0);
+	return SPI_Receive();
 }
 
-char GetCardId(unsigned char * buffer) {
-	unsigned char i;
-	SpiTransmit(0x55);
-	for(i = 0; i < 8 ; i++) {
-		if ((PIND & (1<<Card_Present)) == 0) {
+uint8_t RFID_GetCardId(uint8_t * buffer) 
+{
+	uint8_t i;
+	SPI_Transmit(RFID_CMD_ID);
+	for(i = 0; i < 8 ; i++) 
+	{
+		if ((PIND & (1<<RFID_CARD_PRESENT)) == 0) 
+		{
 			return -1;
 		}
-		while((PIND & (1<<Data_Ready)) == 0) {
+		while((PIND & (1<<RFID_DATA_READY)) == 0) 
+		{
 			wdt_reset();
 		}
-		buffer[i] = SpiReceive();
+		buffer[i] = SPI_Receive();
 	}
 	return 0;
 }
