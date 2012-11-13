@@ -1,5 +1,5 @@
 /**
- * usbtest/main.c
+ * tcp_firmware/main.c
  */
 
 #include "config.h"
@@ -63,7 +63,7 @@ enum terminal_state { starting, idle, scanning, processing, info, no_connection 
 /**
  * Card identifier buffer.
  */
-static uint8_t card_id[8];
+static uint8_t card_id[9];
 
 /**
  * USB reply buffer
@@ -99,14 +99,6 @@ static unsigned int balance;
  * Journey price
  */
 static unsigned int price;
-
-/**
- * Catch-all ISR
- */
-ISR(BADISR_vect, ISR_NOBLOCK)
-{
-
-}
 
 /**
  * USB polling ISR
@@ -245,15 +237,15 @@ static void setup(void)
 {
 	wdt_enable(WDTO_1S);
 
-	DDRC |= (1 << RED_PIN) | (1 << YELLOW_PIN) | (1 << GREEN_PIN);
+	DDRC |= (1 << RED_PIN) | (1 << YELLOW_PIN) | (1 << GREEN_PIN) | (1 << SPEAKER_PIN);
 	PORTC |= 0x0E;
 
 	TCCR1B |= (1 << WGM12);
     TIMSK |= (1 << OCIE1A);
-    OCR1A = 46874; // 256 prescaler --> 1 Hz
+    OCR1A = 65400; // 256 prescaler --> 1 Hz
 
 	TCCR0 |= (1 << WGM01);
-	OCR0 = 45; // 1024 prescaler --> 250 Hz
+	OCR0 = 255; // 1024 prescaler --> 250 Hz
 	TIMSK |= (1 << OCIE0);
 
 	LCD_Init(16);
@@ -286,7 +278,7 @@ int __attribute__((noreturn)) main(void)
 	setup();
 
 	// Indicate setup done
-	//RED_ON;
+	RED_ON;
 
 	// Main loop and state machine
 	for (;;)
@@ -314,7 +306,6 @@ int __attribute__((noreturn)) main(void)
 			}
 			case idle:
 			{
-				//RED_OFF;
 				YELLOW_ON;
 
 				if (first_step)
@@ -335,18 +326,16 @@ int __attribute__((noreturn)) main(void)
 			}
 			case scanning:
 			{
-				RED_ON;
+				YELLOW_OFF;
+
 				if (first_step)
 				{
 					first_step = 0;
 					setStatus("Arbejder...", 0);
 				}
 
-				// XXX: These two call may cause problems sometimes.
-				// The usbSetInterrupt should not block, but maybe it does.
-				// Maybe the SPI transfer hangs, and causes the Watchdog timer to perform a reset.
 				uint8_t n = RFID_GetCardId(card_id);
-				if (n == -1 || card_id[0] != 0x86) 
+				if (n == -1) 
 				{
 					state = info;
 					response = RESP_INVALID_CARD;
@@ -367,7 +356,6 @@ int __attribute__((noreturn)) main(void)
 			}
 			case processing:
 			{
-				RED_OFF;
 				if (response != 0)
 				{
 					if (response == RESP_CHECKED_IN) 

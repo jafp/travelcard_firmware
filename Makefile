@@ -229,7 +229,7 @@ hex: $(HEXTRG)
 writeflash: hex
 	$(AVRDUDE) -c $(AVRDUDE_PROGRAMMERID)   \
 	 -p $(PROGRAMMER_MCU) -e        \
-	 -U flash:w:$(HEXROMTRG) -U lfuse:w:0xff:m -U hfuse:w:0xd9:m
+	 -U flash:w:$(HEXROMTRG) -U lfuse:w:0xef:m -U hfuse:w:0x99:m #-U lfuse:w:0xff:m -U hfuse:w:0xd9:m
 
 	 #-U lfuse:w:0xf1:m -U hfuse:w:0xdf:m -U efuse:w:0xfe:m
 
