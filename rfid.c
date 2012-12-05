@@ -1,3 +1,5 @@
+
+#include <string.h>
 #include <avr/wdt.h>
 #include "rfid.h"
 

@@ -15,6 +15,9 @@
 #include "usb.h"
 #include "rfid.h"
 
+#define BTN_PORT	PORTD
+#define BTN_PIN		PD0
+
 #define RED_PIN		PC3
 #define YELLOW_PIN	PC2
 #define GREEN_PIN	PC1
@@ -64,6 +67,11 @@ enum terminal_state { starting, idle, scanning, processing, info, no_connection 
  * Card identifier buffer.
  */
 static uint8_t card_id[9];
+
+/**
+ * Flag indicating if we should use the buzzer.
+ */
+static uint8_t use_buzzer;
 
 /**
  * USB reply buffer
@@ -237,6 +245,9 @@ static void setup(void)
 {
 	wdt_enable(WDTO_1S);
 
+	// Use buzzer if the black buttons isn't pressed during startup
+	use_buzzer = 1;
+
 	DDRC |= (1 << RED_PIN) | (1 << YELLOW_PIN) | (1 << GREEN_PIN) | (1 << SPEAKER_PIN);
 	PORTC |= 0x0E;
 
@@ -306,7 +317,8 @@ int __attribute__((noreturn)) main(void)
 			}
 			case idle:
 			{
-				YELLOW_ON;
+				YELLOW_OFF;
+				GREEN_OFF;
 
 				if (first_step)
 				{
@@ -326,7 +338,7 @@ int __attribute__((noreturn)) main(void)
 			}
 			case scanning:
 			{
-				YELLOW_OFF;
+				YELLOW_ON;
 
 				if (first_step)
 				{
@@ -358,19 +370,22 @@ int __attribute__((noreturn)) main(void)
 			{
 				if (response != 0)
 				{
-					if (response == RESP_CHECKED_IN) 
+					if (use_buzzer)
 					{
-						speakerBeep(100);
-					}
-					else if (response == RESP_CHECKED_OUT)
-					{
-						speakerBeep(100);
-						delay(50);
-						speakerBeep(100);	
-					}
-					else 
-					{
-						speakerBeep(255);
+						if (response == RESP_CHECKED_IN) 
+						{
+							speakerBeep(100);
+						}
+						else if (response == RESP_CHECKED_OUT)
+						{
+							speakerBeep(100);
+							delay(50);
+							speakerBeep(100);	
+						}
+						else 
+						{
+							speakerBeep(255);
+						}
 					}
 
 					first_step = 1;
@@ -487,7 +502,9 @@ int __attribute__((noreturn)) main(void)
 				{
 					first_step = 0;
 					
-					RED_ON;
+					RED_OFF;
+					YELLOW_ON;
+
 					setStatus("Ude af drift", 0);
 					setStatus("", 1);
 				}
