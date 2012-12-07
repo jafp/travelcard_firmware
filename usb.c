@@ -3,15 +3,14 @@
  */
 
 #include "config.h"
+
 #include <avr/io.h>
 #include <avr/wdt.h>
 #include <avr/interrupt.h>
 #include <util/delay.h> 
-#include "bits.h"
+ 
 #include "usb.h"
-
-//static usbCallbackFn callback_fn = 0;
-//static uchar data_buffer[8];
+#include "usbdrv/usbdrv.h"
 
 void USB_InitAndConnect()
 {
@@ -28,10 +27,5 @@ void USB_InitAndConnect()
     
     usbDeviceConnect();
     sei();
-}
-
-void USB_SetCallback(usbCallbackFn fn)
-{	
-	//callback_fn = fn;
 }
 

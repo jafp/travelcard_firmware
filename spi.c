@@ -21,10 +21,9 @@ void SPI_Transmit(uint8_t data)
 	EmptyBuffer();
 	PORT_SPI &= (0<<SPI_SS);
 	SPDR = data;
-	while(!(SPSR & (1<<SPIF))) 
+	while(!(SPSR & (1<<SPIF)))
 	{
-		// XXX: We get stuck here sometimes!!
-		//wdt_reset();
+		// Do nothing
 	}
 	PORT_SPI |= (1<<SPI_SS);
 	_delay_ms(5);
@@ -36,8 +35,7 @@ uint8_t SPI_Receive(void)
 	SPDR = 0xF5;
 	while(!(SPSR & (1<<SPIF)))
 	{
-		// XXX: We get stuck here sometimes!!
-		//wdt_reset();
+		// Do nothing
 	}
 	PORT_SPI |= (1<<SPI_SS);
 	_delay_ms(5);

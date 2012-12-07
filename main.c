@@ -14,8 +14,9 @@
 #include "lcd.h"
 #include "usb.h"
 #include "rfid.h"
+#include "lang.h"
 
-#define BTN_PORT	PORTD
+#define BTN_PORT	PIND
 #define BTN_PIN		PD0
 
 #define RED_PIN		PC3
@@ -58,12 +59,6 @@
 enum terminal_state { starting, idle, scanning, processing, info, no_connection };
 
 /**
- * Counter variables for the keep alive counter.
- */
-// static unsigned int keep_alive_i = 0;
-// static unsigned int keep_alive_j = 0;
-
-/**
  * Card identifier buffer.
  */
 static uint8_t card_id[9];
@@ -76,17 +71,22 @@ static uint8_t use_buzzer;
 /**
  * USB reply buffer
  */
-static uchar reply_buffer[8];
+static uint8_t reply_buffer[8];
 
 /**
  * Response code from server.
  */
-static uchar response = 0;
+static uint8_t response = 0;
+
+/**
+ * Latest USB command identifier
+ */
+static uint8_t command;
 
 /**
  * First step in state flag
  */
-static uchar first_step = 1;
+static uint8_t first_step = 1;
 
 /**
  * The current terminal state.
@@ -109,7 +109,8 @@ static unsigned int balance;
 static unsigned int price;
 
 /**
- * USB polling ISR
+ * USB polling ISR. This interrupt get called at regular intervals
+ * to keep the USB connection alive.
  */
 ISR(TIMER0_COMP_vect, ISR_NOBLOCK)
 {
@@ -128,6 +129,8 @@ ISR(TIMER1_COMPA_vect, ISR_NOBLOCK)
 /**
  * Helper function to generate a delay.
  * The watchdog timer is kept busy in the meanwhile.
+ *
+ * @param ms Length of the delay in milliseconds
  */
 inline void delay(uint8_t ms) 
 {
@@ -139,7 +142,9 @@ inline void delay(uint8_t ms)
 }
 
 /**
- * 
+ * Beeps the speaker in the given amount of time
+ *
+ * @param Length of beep in milliseconds
  */
 inline void speakerBeep(uint8_t ms) 
 {
@@ -167,11 +172,15 @@ static void isAlive(void)
 }
 
 /**
- * USB request handler
+ * USB request handler. Get called by the USB library every
+ * time a request is made to the device. 
+ *
+ * @param data The USB request packet
  */
-usbMsgLen_t usbFunctionSetup(uchar data[8])
+usbMsgLen_t usbFunctionSetup(uint8_t data[8])
 {
-    uchar len = 0;
+    uint8_t len = 0;
+    command = data[1];
 
     if (data[1] == CMD_ECHO)
     {	
@@ -179,16 +188,16 @@ usbMsgLen_t usbFunctionSetup(uchar data[8])
     	reply_buffer[1] = data[3];
     	len = 2;
     }
-    if (data[1] == CMD_IDENTIFER)
+    else if (data[1] == CMD_IDENTIFER)
     {
     	reply_buffer[0] = ID;
     	len = 1;
     }
-    if (data[1] == CMD_RESPONSE)
+    else if (data[1] == CMD_RESPONSE)
     {
     	len = USB_NO_MSG;
     }
-    if (data[1] == CMD_KEEP_ALIVE)
+    else if (data[1] == CMD_KEEP_ALIVE)
     {
     	isAlive();
     	len = 0;
@@ -199,20 +208,27 @@ usbMsgLen_t usbFunctionSetup(uchar data[8])
 }
 
 /**
- * USB request data handler
+ * USB request data handler. This method is called directly from the 
+ * USB library.
+ *
+ * @param data An array of unsigned 8-bit integers
+ * @param len The length of the data array	
  */
-USB_PUBLIC uchar usbFunctionWrite(uchar *data, uchar len)
+USB_PUBLIC uint8_t usbFunctionWrite(uint8_t *data, uint8_t len)
 {
 	response = data[0];
 
-	if ( response == RESP_CHECKED_IN || response == RESP_CHECKED_OUT || response == RESP_INSUFFICIENT_FUNDS) 
+	if (command == CMD_RESPONSE)
 	{
-		balance = data[2] | (data[1] << 8);
-	}
+		if ( response == RESP_CHECKED_IN || response == RESP_CHECKED_OUT || response == RESP_INSUFFICIENT_FUNDS) 
+		{
+			balance = data[2] | (data[1] << 8);
+		}
 
-	if ( response == RESP_CHECKED_OUT || response == RESP_INSUFFICIENT_FUNDS )
-	{
-		price = data[4] | (data[3] << 8); 
+		if ( response == RESP_CHECKED_OUT || response == RESP_INSUFFICIENT_FUNDS )
+		{
+			price = data[4] | (data[3] << 8); 
+		}
 	}
 
 	return 1;
@@ -221,8 +237,11 @@ USB_PUBLIC uchar usbFunctionWrite(uchar *data, uchar len)
 /**
  * Prints the given message on the given line.
  * The line are cleared before print.
+ * 
+ * @param msg The string to print
+ * @param msg The line number
  */
-static void setStatus(const char * msg, uchar line)
+static void setStatus(const char * msg, uint8_t line)
 {
 	LCD_GotoXY(0, line);
 	LCD_PutString("                ");
@@ -231,15 +250,17 @@ static void setStatus(const char * msg, uchar line)
 }
 
 /**
- * Creates a string like "Saldo: [current balance]"
+ * Creates a string like "Saldo: [current balance] kr"
+ *
+ * @param buffer The buffer we write the string to
  */
 static void makeBalance(char *buffer)
 {
-	sprintf(buffer, "Saldo %d kr", balance);
+	sprintf(buffer, L_BALANCE, balance);
 }
 
 /**
- * Hardware setup routines.
+ * Hardware setup peripherals
  */
 static void setup(void)
 {
@@ -275,7 +296,9 @@ static void setup(void)
 }
 
 /**
- * The main function with the main loop and state machine.
+ * The main function with the main loop and state machine. 
+ * This function should never return, so we tell the compiler that
+ * by annotating the function with a noreturn-attribute.
  */
 int __attribute__((noreturn)) main(void)
 {
@@ -302,7 +325,7 @@ int __attribute__((noreturn)) main(void)
 			{
 				// Start-up phase.
 				// Do nothing in a bunch of clock cycles
-				setStatus("Starter...", 0);
+				setStatus(L_STARTING, 0);
 				setStatus("", 1);
 
 				for (i = 0; i < 100; i++) 
@@ -317,14 +340,11 @@ int __attribute__((noreturn)) main(void)
 			}
 			case idle:
 			{
-				YELLOW_OFF;
-				GREEN_OFF;
-
 				if (first_step)
 				{
 					first_step = 0;
 
-					setStatus("Scan her!", 0);
+					setStatus(L_SCAN_HERE, 0);
 					setStatus("", 1);
 				}
 				
@@ -338,12 +358,10 @@ int __attribute__((noreturn)) main(void)
 			}
 			case scanning:
 			{
-				YELLOW_ON;
-
 				if (first_step)
 				{
 					first_step = 0;
-					setStatus("Arbejder...", 0);
+					setStatus(L_WORKING, 0);
 				}
 
 				uint8_t n = RFID_GetCardId(card_id);
@@ -400,6 +418,8 @@ int __attribute__((noreturn)) main(void)
 					first_step = 0;
 				}
 
+				// When we have been in this state in 500.000 ticks,
+				// we change the state to info, an set the response to error
 				i++;
 				if (i == 50000)
 				{
@@ -416,14 +436,11 @@ int __attribute__((noreturn)) main(void)
 			}
 			case info:
 			{
-				YELLOW_OFF;
-				GREEN_ON;
-
 				switch (response)
 				{
 					case RESP_CHECKED_IN:
 					{
-						setStatus("Check ind", 0);
+						setStatus(L_CHECK_IN, 0);
 						makeBalance(buf);
 						setStatus(buf, 1);
 
@@ -431,7 +448,7 @@ int __attribute__((noreturn)) main(void)
 					}
 					case RESP_CHECKED_OUT:
 					{
-						sprintf(buf, "Check ud   %d kr", price);
+						sprintf(buf, L_CHECK_OUT, price);
 						setStatus(buf, 0);
 						makeBalance(buf);
 						setStatus(buf, 1);
@@ -440,7 +457,7 @@ int __attribute__((noreturn)) main(void)
 					}
 					case RESP_INSUFFICIENT_FUNDS:
 					{
-						setStatus("Saldo for lav", 0);
+						setStatus(L_INSUFFICIENT_FUNDS, 0);
 						makeBalance(buf);
 						setStatus(buf, 1);
 
@@ -449,28 +466,28 @@ int __attribute__((noreturn)) main(void)
 					case RESP_CARD_NOT_FOUND:
 					case RESP_INVALID_CARD:
 					{
-						setStatus("Ugyldigt kort", 0);
+						setStatus(L_INVALID_CARD, 0);
 						setStatus("", 1);
 
 						break;
 					}
 					case RESP_TOO_LATE_CHECK_OUT:
 					{
-						setStatus("For sent checkud", 0);
-						setStatus("", 1);
+						setStatus(L_CHECK_OUT_TOO_LATE, 0);
+						setStatus(L_LATE_CHECK_OUT_FEE, 1);
 
 						break;
 					}
 					case RESP_OK:
 					{
-						setStatus("OK", 0);
+						setStatus(L_OK, 0);
 						setStatus("", 1);
 
 						break;
 					}
 					default: 
 					{
-						setStatus("SYSTEMFEJL", 0);
+						setStatus(L_SYSTEM_ERROR, 0);
 						setStatus("", 1);
 
 						break;
@@ -483,7 +500,6 @@ int __attribute__((noreturn)) main(void)
 					wdt_reset();
 				}
 
-				GREEN_OFF;
 				state = idle;
 				response = 0;
 				first_step = 1;
@@ -501,11 +517,8 @@ int __attribute__((noreturn)) main(void)
 				if (first_step)
 				{
 					first_step = 0;
-					
-					RED_OFF;
-					YELLOW_ON;
 
-					setStatus("Ude af drift", 0);
+					setStatus(L_OUT_OF_ORDER, 0);
 					setStatus("", 1);
 				}
 
