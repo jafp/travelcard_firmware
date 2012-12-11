@@ -1,6 +1,17 @@
-/**
- * usb.c
- */
+/*--------------------------------------------------------
+
+usb.c
+
+This file contains functions related to setting of the USB 
+library. Rest of the USB related functions required by VUSB
+library is implemented in main.c
+
+Version:    1
+Author:     Jacob Pedersen
+Company:    IHK
+Date:       2012-12-01
+
+--------------------------------------------------------*/
 
 #include "config.h"
 
@@ -12,7 +23,11 @@
 #include "usb.h"
 #include "usbdrv/usbdrv.h"
 
-void USB_InitAndConnect()
+/**
+ * Initialize the USB library and connect to the host
+ */
+void 
+USB_InitAndConnect()
 {
 	uchar i;
 

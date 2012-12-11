@@ -1,3 +1,15 @@
+/*--------------------------------------------------------
+
+lang.h
+
+This file contains all translated strings.
+
+Version: 	1
+Author: 	Jacob Pedersen
+Company:	IHK
+Date:		2012-12-01
+
+--------------------------------------------------------*/
 
 #ifndef _LANG_H_
 #define _LANG_H_

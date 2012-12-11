@@ -21,12 +21,19 @@
 /**
  * RFID acknowledge response
  */
-#define RFID_ACK_RESP		0x86
+#define RFID_RESP_ACK		0x86
 
 
-void RFID_Init(void);
-uint8_t RFID_IsCardPresent(void);
-uint8_t RFID_GetCardStatus(void);
-uint8_t RFID_GetCardId(uint8_t * buffer);
+void 
+RFID_Init(void);
+
+uint8_t 
+RFID_IsCardPresent(void);
+
+uint8_t 
+RFID_GetCardStatus(void);
+
+uint8_t 
+RFID_GetCardId(uint8_t * buffer);
 
 #endif

@@ -15,8 +15,13 @@
 #define DD_SS 		DDB4
 #define SPI_SS 		PB4
 
-void SPI_Init(void);
-void SPI_Transmit(uint8_t data);
-uint8_t SPI_Receive(void);
+void 
+SPI_Init(void);
+
+void 
+SPI_Transmit(uint8_t data);
+
+uint8_t 
+SPI_Receive(void);
 
 #endif
