@@ -60,7 +60,7 @@ RFID_GetCardStatus(void)
 uint8_t 
 RFID_GetCardId(uint8_t * buffer) 
 {
-	uint8_t i = 8;
+	uint8_t i;
 	memset(buffer, 0, sizeof(buffer));
 
 	SPI_Transmit(RFID_CMD_ID);
@@ -68,25 +68,19 @@ RFID_GetCardId(uint8_t * buffer)
 	while(!(PIND & (1<<RFID_DATA_READY)));
 	uint8_t status = SPI_Receive();
 
-	if (status != 0x86) {
+	if (status != 0x86) 
+	{
 		return -1;
 	}
 
-	/**
-	 * The bytes of the card ID is received en little endian order thus
-	 * on the server side we are using big endian order (because of the ByteBuffer).
-	 */
-	while (--i) 
+	for (i = 0; i < 7; i++)
 	{
-		if ((PIND & (1<<RFID_CARD_PRESENT)) == 0) 
-		{
-			return -1;
-		}
 		while((PIND & (1<<RFID_DATA_READY)) == 0) 
 		{
 			wdt_reset();
 		}
 		buffer[i] = SPI_Receive();
 	}
+
 	return 0;
 }

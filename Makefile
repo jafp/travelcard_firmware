@@ -83,7 +83,7 @@ PROJECTNAME=tcp_firmware
 # (list all files to compile, e.g. 'a.c b.cpp as.S'):
 # Use .cc, .cpp or .C suffix for C++ files, use .S 
 # (NOT .s !!!) for assembly source code files.
-PRJSRC=usbdrv/usbdrv.c usbdrv/usbdrvasm.S spi.c rfid.c lcd.c usb.c main.c
+PRJSRC=usbdrv/usbdrv.c usbdrv/usbdrvasm.S spi.c rfid.c lcd.c usb.c test.c main.c
 #PRJSRC=lcd.c main.c
 
 # additional includes (e.g. -I/path/to/mydir)

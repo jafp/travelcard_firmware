@@ -22,48 +22,13 @@ Date:		2012-12-01
 #include <util/delay.h>
 
 #include "usbdrv/usbdrv.h"
-#include "bits.h"
+#include "common.h"
 #include "lcd.h"
 #include "usb.h"
 #include "rfid.h"
+#include "test.h"
 #include "lang.h"
 
-#define BTN_PORT	PIND
-#define BTN_PIN		PD0
-
-#define RED_PIN		PC3
-#define YELLOW_PIN	PC2
-#define GREEN_PIN	PC1
-#define SPEAKER_PIN	PC0
-
-#define RED_ON 		clr(PORTC, RED_PIN)
-#define RED_OFF		set(PORTC, RED_PIN)
-#define YELLOW_ON	clr(PORTC, YELLOW_PIN)
-#define YELLOW_OFF	set(PORTC, YELLOW_PIN)
-#define GREEN_ON	clr(PORTC, GREEN_PIN);
-#define GREEN_OFF	set(PORTC, GREEN_PIN);
-#define SPEAKER_ON	set(PORTC, SPEAKER_PIN);
-#define SPEAKER_OFF	clr(PORTC, SPEAKER_PIN);
-
-/**
- * USB Command codes
- */
-#define CMD_ECHO				0
-#define CMD_IDENTIFER			1
-#define CMD_RESPONSE			3
-#define CMD_KEEP_ALIVE			4
-
-/**
- * Response codes
- */
-#define RESP_ERROR				1
-#define RESP_CARD_NOT_FOUND		2
-#define RESP_INSUFFICIENT_FUNDS	3
-#define RESP_TOO_LATE_CHECK_OUT	4
-#define RESP_INVALID_CARD		5
-#define RESP_CHECKED_IN			6
-#define RESP_CHECKED_OUT		7
-#define RESP_OK 				8
 
 /**
  * Forward declaration of setStatus
@@ -143,14 +108,15 @@ static enum terminal_state_t state = starting;
 static struct transaction current;
 
 /**
- * Flag indicating that test data is ready to be sent
+ * Buffer holding the data to echo back
  */
-static volatile uint8_t test_data_ready_to_send = 0;
+uint8_t echo_buffer[8];
 
 /**
- * Data to be echoed during test.
+ * Flag for indicating echo data ready
  */
-static volatile uint8_t test_data_buffer[8] = { 0 };
+volatile uint8_t echo_ready = 0;
+
 
 /**
  * USB polling ISR. This interrupt get called at regular intervals
@@ -232,8 +198,8 @@ usbFunctionSetup(uint8_t data[8])
 
     if (data[1] == CMD_ECHO)
     {	
-    	setStatus("Data received", 0);
     	len = USB_NO_MSG;
+
     }
     else if (data[1] == CMD_IDENTIFER)
     {
@@ -242,11 +208,15 @@ usbFunctionSetup(uint8_t data[8])
     }
     else if (data[1] == CMD_RESPONSE)
     {
+    	//reply_buffer[0] = 0xE5;
+    	//len = 1;
     	len = USB_NO_MSG;
     }
     else if (data[1] == CMD_KEEP_ALIVE)
     {
     	isAlive();
+    	//reply_buffer[0] = 0xE5;
+    	//len = 1;
     	len = 0;
     } 
 
@@ -283,8 +253,8 @@ usbFunctionWrite(uint8_t *data, uint8_t len)
 	}
 	else if (current.command == CMD_ECHO)
 	{
-		memcpy(test_data_buffer, data, len);
-		test_data_ready_to_send = 1;
+		memcpy(echo_buffer, data, len);
+		echo_ready = 1;
 	}
 
 	return 1;
@@ -385,38 +355,9 @@ main(void)
 	if (isButtonPressed())
 	{
 		wdt_disable();
-		uint8_t print = 1;
+		test();
 
-		for (;;)
-		{
-			GREEN_ON;
-
-			if (test_data_ready_to_send == 1)
-			{
-				GREEN_OFF;
-				delay(10);
-
-				while (!usbInterruptIsReady()) 
-				{
-					// Wait for interrupt endpoint to become ready
-				}
-
-				// Transmit test data buffer
-				usbSetInterrupt(test_data_buffer, 8);
-
-				setStatus("Data sent", 0);
-				test_data_ready_to_send = 0;
-				print = 1;
-
-				delay(10);
-			}
-
-			if (print == 1)
-			{
-				setStatus("--", 0);
-				print = 0;
-			}
-		}
+		for (;;);
 	}
 	else
 	{
@@ -486,8 +427,8 @@ main(void)
 						{
 							wdt_reset();
 						}
-
 						usbSetInterrupt(current.card_id, 8);
+
 						first_step = 1;
 						state = processing;
 					}

@@ -7,7 +7,7 @@
 #endif
 
 #ifndef F_CPU
-	#define F_CPU 12000000UL
+	#define F_CPU 16500000UL
 #endif
 
 #endif
