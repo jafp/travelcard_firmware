@@ -1,0 +1,12 @@
+
+Changes needed to compile with the different terminal hardware:
+
+ - F_CPU in config.h
+ 	v1:	12000000UL
+ 	v2: 16000000UL
+
+ - Serial number in usbconfig.h
+
+ - USB_CFG_CLOCK_KHZ in usbconfig.h
+ 	v1: 12000
+ 	v2: 16000
