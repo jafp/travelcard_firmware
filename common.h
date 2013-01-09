@@ -33,7 +33,6 @@
  * USB Command codes
  */
 #define CMD_ECHO				0
-#define CMD_IDENTIFER			1
 #define CMD_RESPONSE			3
 #define CMD_KEEP_ALIVE			4
 

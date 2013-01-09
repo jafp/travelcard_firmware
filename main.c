@@ -201,22 +201,13 @@ usbFunctionSetup(uint8_t data[8])
     	len = USB_NO_MSG;
 
     }
-    else if (data[1] == CMD_IDENTIFER)
-    {
-    	reply_buffer[0] = ID;
-    	len = 1;
-    }
     else if (data[1] == CMD_RESPONSE)
     {
-    	//reply_buffer[0] = 0xE5;
-    	//len = 1;
     	len = USB_NO_MSG;
     }
     else if (data[1] == CMD_KEEP_ALIVE)
     {
     	isAlive();
-    	//reply_buffer[0] = 0xE5;
-    	//len = 1;
     	len = 0;
     } 
 

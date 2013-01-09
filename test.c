@@ -45,7 +45,7 @@ extern volatile uint8_t echo_ready;
 /**
  * Current test state
  */
-static enum test_state_t state = rfid;
+static enum test_state_t state = button;
 
 static void 
 waitForPressAndRelease(void)
